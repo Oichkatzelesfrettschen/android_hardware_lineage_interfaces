@@ -1222,6 +1222,14 @@ NanStatusType convertLegacyNanStatusTypeToHidl(legacy_hal::NanStatusType type) {
             return NanStatusType::FOLLOWUP_TX_QUEUE_FULL;
         case legacy_hal::NAN_STATUS_UNSUPPORTED_CONCURRENCY_NAN_DISABLED:
             return NanStatusType::UNSUPPORTED_CONCURRENCY_NAN_DISABLED;
+        // NAN pairing and bootstrapping statuses have no HIDL enumerator.
+        case legacy_hal::NAN_STATUS_INVALID_PAIRING_ID:
+        case legacy_hal::NAN_STATUS_INVALID_BOOTSTRAPPING_ID:
+            return NanStatusType::INVALID_ARGS;
+        case legacy_hal::NAN_STATUS_REDUNDANT_REQUEST:
+        case legacy_hal::NAN_STATUS_NOT_SUPPORTED:
+        case legacy_hal::NAN_STATUS_NO_CONNECTION:
+            return NanStatusType::INTERNAL_FAILURE;
     }
     CHECK(false);
 }
@@ -2386,6 +2394,9 @@ RttType convertLegacyRttTypeToHidl(legacy_hal::wifi_rtt_type type) {
         case legacy_hal::RTT_TYPE_1_SIDED:
             return RttType::ONE_SIDED;
         case legacy_hal::RTT_TYPE_2_SIDED:
+        // 802.11az non-trigger-based ranging is two-sided; HIDL has one two-sided type.
+        case legacy_hal::RTT_TYPE_2_SIDED_11AZ_NTB:
+        case legacy_hal::RTT_TYPE_2_SIDED_11AZ_NTB_SECURE:
             return RttType::TWO_SIDED;
     };
     CHECK(false) << "Unknown legacy type: " << type;
@@ -2483,6 +2494,9 @@ V1_6::RttPreamble convertLegacyRttPreambleToHidl(legacy_hal::wifi_rtt_preamble t
             return V1_6::RttPreamble::HE;
         case legacy_hal::WIFI_RTT_PREAMBLE_EHT:
             return V1_6::RttPreamble::EHT;
+        // HIDL has no invalid preamble; report the 11a/g legacy preamble.
+        case legacy_hal::WIFI_RTT_PREAMBLE_INVALID:
+            return V1_6::RttPreamble::LEGACY;
     };
     CHECK(false) << "Unknown legacy type: " << type;
 }
@@ -2523,6 +2537,9 @@ RttBw convertLegacyRttBwToHidl(legacy_hal::wifi_rtt_bw type) {
             return RttBw::BW_160MHZ;
         case legacy_hal::WIFI_RTT_BW_320:
             return RttBw::BW_320MHZ;
+        // HIDL has no unspecified bandwidth; report the 20 MHz baseline.
+        case legacy_hal::WIFI_RTT_BW_UNSPECIFIED:
+            return RttBw::BW_20MHZ;
     };
     CHECK(false) << "Unknown legacy type: " << type;
 }
@@ -2612,6 +2629,13 @@ RttStatus convertLegacyRttStatusToHidl(legacy_hal::wifi_rtt_status status) {
             return RttStatus::FAILURE;  // TODO: add HIDL enumeration
         case legacy_hal::RTT_STATUS_NAN_RANGING_CONCURRENCY_NOT_SUPPORTED:
             return RttStatus::FAILURE;  // TODO: add HIDL enumeration
+        // Secure ranging failures have no HIDL enumeration.
+        case legacy_hal::RTT_STATUS_SECURE_RANGING_FAILURE_INVALID_AKM:
+        case legacy_hal::RTT_STATUS_SECURE_RANGING_FAILURE_INVALID_CIPHER:
+        case legacy_hal::RTT_STATUS_SECURE_RANGING_FAILURE_INVALID_CONFIG:
+        case legacy_hal::RTT_STATUS_SECURE_RANGING_FAILURE_REJECTED:
+        case legacy_hal::RTT_STATUS_SECURE_RANGING_FAILURE_UNKNOWN:
+            return RttStatus::FAILURE;
     };
     CHECK(false) << "Unknown legacy status: " << status;
 }
