@@ -110,6 +110,8 @@ cc_library_static {
         "android.hardware.wifi@1.6",
     ],
 
+    header_libs: ["wifi_legacy_headers"],
+    export_header_lib_headers: ["wifi_legacy_headers"],
     export_include_dirs: ["."],
 }
 
@@ -143,6 +145,7 @@ cc_binary {
         "android.hardware.wifi@1.6",
     ],
     static_libs: ["android.hardware.wifi@1.0-service.legacy-lib"],
+    header_libs: ["wifi_legacy_headers"],
     init_rc: ["android.hardware.wifi@1.0-service.legacy.rc"],
 }
 
@@ -178,5 +181,6 @@ cc_binary {
         "android.hardware.wifi@1.6",
     ],
     static_libs: ["android.hardware.wifi@1.0-service.legacy-lib"],
+    header_libs: ["wifi_legacy_headers"],
     init_rc: ["android.hardware.wifi@1.0-service.legacy-lazy.rc"],
 }
