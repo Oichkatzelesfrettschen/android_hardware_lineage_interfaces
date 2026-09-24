@@ -160,7 +160,7 @@ enum SvidValues : uint16_t {
     GLONASS_SVID_OFFSET = 64,
     GLONASS_SVID_COUNT = 24,
     BEIDOU_SVID_OFFSET = 200,
-    BEIDOU_SVID_COUNT = 35,
+    BEIDOU_SVID_COUNT = 37,
     SBAS_SVID_MIN = 33,
     SBAS_SVID_MAX = 64,
     SBAS_SVID_ADD = 87,
@@ -201,7 +201,10 @@ void Gnss::gpsSvStatusCb(GpsSvStatus* svInfo) {
     // Our HALs report a bigger svinfo struct, HaxxSvStatus, which includes a GLONASS and
     // a Beidou usage mask
     uint32_t gloUsedInFixMask = *(&(svInfo->used_in_fix_mask) + 1); // the next int
-    uint64_t bdsUsedInFixMask = *(&(svInfo->used_in_fix_mask) + 2); // the next int
+    // HaxxSvStatus declares the Beidou mask uint64_t at the next 8-byte boundary, but the
+    // QMI loc HALs fill it from a 32-bit shift sign-extended into the high word, so only
+    // the low word holds one bit per Beidou PRN 1-32.
+    uint32_t bdsUsedInFixMask = *(&(svInfo->used_in_fix_mask) + 2);
     /*
      * Conversion from GpsSvInfo to IGnssCallback::GnssSvInfo happens below.
      */
@@ -235,26 +238,27 @@ void Gnss::gpsSvStatusCb(GpsSvStatus* svInfo) {
         info.svFlag = static_cast<uint8_t>(IGnssCallback::GnssSvFlags::NONE);
 
         /*
-         * GPS, GLONASS and Beidou info is valid for these fields, as these masks
-         * are just 32/64 bits, by GPS prn, another for GLONASS prn and another
-         * for Beidou prn.
+         * Each mask holds bit (svid - 1) for svid 1-32 of one constellation. The
+         * ephemeris and almanac masks are indexed by GPS prn only; the used-in-fix
+         * masks exist for GPS, GLONASS slot and Beidou prn.
          */
-        if (info.constellation == GnssConstellationType::GPS ||
-            info.constellation == GnssConstellationType::GLONASS ||
-            info.constellation == GnssConstellationType::BEIDOU) {
-            int32_t svidMask = (1 << (info.svid - 1));
-            if ((ephemerisMask & svidMask) != 0) {
-                info.svFlag |= IGnssCallback::GnssSvFlags::HAS_EPHEMERIS_DATA;
+        if (info.svid >= 1 && info.svid <= 32) {
+            uint32_t svidMask = UINT32_C(1) << (info.svid - 1);
+            uint32_t usedMask = 0;
+            if (info.constellation == GnssConstellationType::GPS) {
+                if ((ephemerisMask & svidMask) != 0) {
+                    info.svFlag |= IGnssCallback::GnssSvFlags::HAS_EPHEMERIS_DATA;
+                }
+                if ((almanacMask & svidMask) != 0) {
+                    info.svFlag |= IGnssCallback::GnssSvFlags::HAS_ALMANAC_DATA;
+                }
+                usedMask = usedInFixMask;
+            } else if (info.constellation == GnssConstellationType::GLONASS) {
+                usedMask = gloUsedInFixMask;
+            } else if (info.constellation == GnssConstellationType::BEIDOU) {
+                usedMask = bdsUsedInFixMask;
             }
-            if ((almanacMask & svidMask) != 0) {
-                info.svFlag |= IGnssCallback::GnssSvFlags::HAS_ALMANAC_DATA;
-            }
-            if ((info.constellation == GnssConstellationType::GPS &&
-                 (usedInFixMask & svidMask) != 0) ||
-                (info.constellation == GnssConstellationType::GLONASS &&
-                 (gloUsedInFixMask & svidMask) != 0) ||
-                (info.constellation == GnssConstellationType::BEIDOU &&
-                 (bdsUsedInFixMask & svidMask) != 0)) {
+            if ((usedMask & svidMask) != 0) {
                 info.svFlag |= IGnssCallback::GnssSvFlags::USED_IN_FIX;
             }
         }
