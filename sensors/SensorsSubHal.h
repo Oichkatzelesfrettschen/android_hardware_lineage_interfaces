@@ -8,6 +8,8 @@
 
 #include <hardware/sensors.h>
 #include <sensors/convert.h>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -63,6 +65,11 @@ class SensorsSubHal : public ISensorsSubHal {
   protected:
     std::map<int32_t, SensorInfo> mSensors;
 
+    // HalProxy::initialize() hands over the callback on a binder thread while
+    // the poll thread already runs; mCallbackLock guards it and mCallbackSet
+    // wakes the poll thread once it is non-null.
+    std::mutex mCallbackLock;
+    std::condition_variable mCallbackSet;
     sp<IHalProxyCallback> mCallback;
 
   private:
