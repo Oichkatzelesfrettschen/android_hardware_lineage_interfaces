@@ -298,14 +298,27 @@ Return<void> SensorsSubHal::debug(const hidl_handle& fd, const hidl_vec<hidl_str
 }
 
 Return<Result> SensorsSubHal::initialize(const sp<IHalProxyCallback>& halProxyCallback) {
-    mCallback = halProxyCallback;
+    {
+        std::lock_guard<std::mutex> lock(mCallbackLock);
+        mCallback = halProxyCallback;
+    }
+    mCallbackSet.notify_all();
     setOperationMode(OperationMode::NORMAL);
     return Result::OK;
 }
 
+// The legacy poll() returns events as soon as the hardware streams, which after
+// a HAL process restart precedes initialize(); the batch waits for the callback
+// rather than dereferencing a null one.
 void SensorsSubHal::postEvents(const std::vector<Event>& events, bool wakeup) {
-    ScopedWakelock wakelock = mCallback->createScopedWakelock(wakeup);
-    mCallback->postEvents(events, std::move(wakelock));
+    sp<IHalProxyCallback> callback;
+    {
+        std::unique_lock<std::mutex> lock(mCallbackLock);
+        mCallbackSet.wait(lock, [this] { return mCallback != nullptr; });
+        callback = mCallback;
+    }
+    ScopedWakelock wakelock = callback->createScopedWakelock(wakeup);
+    callback->postEvents(events, std::move(wakelock));
 }
 
 }  // namespace implementation
